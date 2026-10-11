@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tip Calculator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --muted: #94a3b8;
+      --text: #f8fafc;
+      --accent: #2dd4bf;
+      --accent-strong: #14b8a6;
+      --danger: #f87171;
+      --field: #0b1220;
+      --line: #334155;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, #134e4a 0%, transparent 40%),
+        var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(520px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.6rem;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+    }
+
+    form { display: grid; gap: 18px; }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--field);
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    input[type="number"]:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .tips {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .tips button {
+      padding: 10px 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--field);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .tips button[aria-pressed="true"] {
+      background: var(--accent);
+      color: #042f2e;
+      border-color: var(--accent-strong);
+    }
+
+    .error {
+      min-height: 1.25em;
+      color: var(--danger);
+      font-size: 0.9rem;
+    }
+
+    .results {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 16px;
+      border-radius: 14px;
+      background: #0b1220;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .row.total {
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .value { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 480px) {
+      .tips { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Tip Calculator</h1>
+    <p class="subtitle">Enter the bill, pick a tip, and split it evenly.</p>
+
+    <form id="tip-form" novalidate>
+      <div>
+        <label for="bill">Bill amount ($)</label>
+        <input
+          id="bill"
+          name="bill"
+          type="number"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          placeholder="0.00"
+          required
+          aria-required="true"
+          aria-describedby="form-error" />
+      </div>
+
+      <div>
+        <p id="tip-label">Tip percentage</p>
+        <div class="tips" role="group" aria-labelledby="tip-label">
+          <button type="button" data-tip="10">10%</button>
+          <button type="button" data-tip="15" aria-pressed="true">15%</button>
+          <button type="button" data-tip="18">18%</button>
+          <button type="button" data-tip="20">20%</button>
+        </div>
+      </div>
+
+      <div>
+        <label for="custom-tip">Custom tip (%)</label>
+        <input
+          id="custom-tip"
+          name="customTip"
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          placeholder="e.g. 22" />
+      </div>
+
+      <div>
+        <label for="people">Number of people</label>
+        <input
+          id="people"
+          name="people"
+          type="number"
+          min="1"
+          step="1"
+          value="1"
+          required
+          aria-required="true"
+          aria-describedby="form-error" />
+      </div>
+
+      <p class="error" id="form-error" role="alert"></p>
+    </form>
+
+    <section class="results" aria-live="polite">
+      <div class="row"><span>Tip</span><span class="value" id="tip-amount">$0.00</span></div>
+      <div class="row"><span>Tip / person</span><span class="value" id="tip-each">$0.00</span></div>
+      <div class="row total"><span>Total</span><span class="value" id="total-amount">$0.00</span></div>
+      <div class="row"><span>Total / person</span><span class="value" id="total-each">$0.00</span></div>
+    </section>
+  </main>
+
+  <script>
+    const money = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD"
+    });
+
+    const form = document.getElementById("tip-form");
+    const billInput = document.getElementById("bill");
+    const customTipInput = document.getElementById("custom-tip");
+    const peopleInput = document.getElementById("people");
+    const errorEl = document.getElementById("form-error");
+    const tipButtons = [...document.querySelectorAll("[data-tip]")];
+
+    const outputs = {
+      tip: document.getElementById("tip-amount"),
+      tipEach: document.getElementById("tip-each"),
+      total: document.getElementById("total-amount"),
+      totalEach: document.getElementById("total-each")
+    };
+
+    function parseAmount(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : NaN;
+    }
+
+    function selectedTipPercent() {
+      const custom = parseAmount(customTipInput.value);
+      if (customTipInput.value !== "" && Number.isFinite(custom)) return custom;
+      const pressed = tipButtons.find((btn) => btn.getAttribute("aria-pressed") === "true");
+      return parseAmount(pressed?.dataset.tip ?? "0");
+    }
+
+    function setPressedTip(percent) {
+      tipButtons.forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.tip === String(percent)));
+      });
+    }
+
+    function validate(bill, tipPercent, people) {
+      if (billInput.value === "" || Number.isNaN(bill) || bill < 0) {
+        return "Enter a bill amount of 0 or more.";
+      }
+      if (Number.isNaN(tipPercent) || tipPercent < 0 || tipPercent > 100) {
+        return "Tip must be between 0 and 100.";
+      }
+      if (!Number.isInteger(people) || people < 1) {
+        return "Number of people must be a whole number of 1 or more.";
+      }
+      return "";
+    }
+
+    function render(bill, tipPercent, people) {
+      const tip = bill * (tipPercent / 100);
+      const total = bill + tip;
+      outputs.tip.textContent = money.format(tip);
+      outputs.tipEach.textContent = money.format(tip / people);
+      outputs.total.textContent = money.format(total);
+      outputs.totalEach.textContent = money.format(total / people);
+    }
+
+    function clearResults() {
+      Object.values(outputs).forEach((el) => {
+        el.textContent = money.format(0);
+      });
+    }
+
+    function calculate() {
+      const bill = parseAmount(billInput.value);
+      const tipPercent = selectedTipPercent();
+      const people = parseAmount(peopleInput.value);
+      const message = validate(bill, tipPercent, people);
+      errorEl.textContent = message;
+      if (message) {
+        clearResults();
+        return;
+      }
+      render(bill, tipPercent, people);
+    }
+
+    tipButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        customTipInput.value = "";
+        setPressedTip(btn.dataset.tip);
+        calculate();
+      });
+    });
+
+    customTipInput.addEventListener("input", () => {
+      if (customTipInput.value !== "") setPressedTip(null);
+      calculate();
+    });
+
+    form.addEventListener("input", (event) => {
+      if (event.target === customTipInput) return;
+      calculate();
+    });
+
+    calculate();
+  </script>
+</body>
+</html>
